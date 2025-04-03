@@ -1,4 +1,4 @@
-enrichmet2 <- function(inputMetabolites, PathwayVsMetabolites, example_data, top_n = 100, p_value_cutoff = 1) {
+enrichmet <- function(inputMetabolites, PathwayVsMetabolites, example_data, top_n = 100, p_value_cutoff = 1) {
   
   # ----------------- Convert Adjacency Matrix to List -------------------------
   matrix_to_list <- function(pws) {
