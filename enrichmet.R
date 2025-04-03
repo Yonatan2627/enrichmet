@@ -1,4 +1,4 @@
-enrichmet <- function(inputMetabolites, PathwayVsMetabolites, example_data, top_n = 100, p_value_cutoff = 1) {
+enrichmet2 <- function(inputMetabolites, PathwayVsMetabolites, example_data, top_n = 100, p_value_cutoff = 1) {
   
   # ----------------- Convert Adjacency Matrix to List -------------------------
   matrix_to_list <- function(pws) {
@@ -136,17 +136,11 @@ enrichmet <- function(inputMetabolites, PathwayVsMetabolites, example_data, top_
                    nproc = 1)
   
   # ----------------- GSEA Plot -----------------
-  # Ensure leadingEdge is in character format and then split by commas
   MSEAres$input_count <- sapply(strsplit(as.character(MSEAres$leadingEdge), ","), length)
+  MSEAres <- MSEAres %>% arrange(pval) 
   
-  # Sorting based on p-value
-  MSEAres <- MSEAres %>%
-    arrange(pval) 
-  
-  # Convert 'pathway' to a factor with levels in the order they appear in the file
   MSEAres$pathway <- factor(MSEAres$pathway, levels = MSEAres$pathway)
   
-  # GSEA dot plot
   gsea_plot <- ggplot(MSEAres, aes(x = -log10(pval), y = pathway, size = input_count, color = NES)) +
     geom_point() +
     labs(x = "-log10(p-value)", y = "Pathway", size = "Metabolite count", color = "NES") +
@@ -156,34 +150,19 @@ enrichmet <- function(inputMetabolites, PathwayVsMetabolites, example_data, top_
     theme(panel.border = element_rect(color = "black", fill = NA, size = 0.5),
           axis.ticks.y = element_line(color = "black"))
   
-  # ----------------- Network Plot -----------------
-  set.seed(42)  # For reproducibility
-  edges <- data.frame(
-    from = sample(input_metabolite_centrality$Metabolite, 40, replace = TRUE),
-    to = sample(input_metabolite_centrality$Metabolite, 40, replace = TRUE)
-  )
+  # ----------------- Export Results to Excel -----------------
+  write.xlsx(significant_results_df, "pathway_enrichment_results.xlsx")
+  write.xlsx(MSEAres, "gsea_results.xlsx")
   
-  g <- graph_from_data_frame(edges, directed = FALSE)
+  # ----------------- Plot RBC for Input Metabolites -----------------
+  filter2 <- subset(input_metabolite_centrality, RBC_Metabolite > 0)
+  rbc_plot <- ggplot(filter2, aes(x = reorder(Metabolite, RBC_Metabolite), y = RBC_Metabolite, fill = RBC_Metabolite)) +
+    geom_bar(stat = "identity") +
+    coord_flip() +
+    scale_fill_gradient(low = "orange", high = "red3") +
+    labs(title = "", 
+         x = "Metabolite", y = "Relative Betweenness Centrality", fill = "RBC") +
+    theme_minimal()
   
-  V(g)$RBC <- input_metabolite_centrality$RBC_Metabolite[match(V(g)$name, input_metabolite_centrality$Metabolite)]
-  
-  network_plot <- ggraph(g, layout = "fr") +
-    geom_edge_link(alpha = 0.3, color = "black") +
-    geom_node_point(aes(size = RBC, color = RBC, fill = RBC), shape = 21, stroke = 0.5) +
-    geom_node_text(aes(label = name), repel = TRUE, size = 4) +
-    scale_color_gradient(low = "blue", high = "red") +
-    scale_fill_gradient(low = "blue", high = "red") +
-    labs(title = "Metabolite Interaction Network") +
-    theme_void() +
-    theme(legend.position = "none")
-  
-  return(list(pathway_plot = pathway_plot, gsea_plot = gsea_plot, network_plot = network_plot))
+  return(list(pathway_plot = pathway_plot, gsea_plot = gsea_plot, rbc_plot = rbc_plot))
 }
-
-results <- enrichmet(inputMetabolites, PathwayVsMetabolites,example_data, top_n = 10, p_value_cutoff = 1)
-
-# Display plots
-results$pathway_plot
-results$network_plot
-results$gsea_plot
-
